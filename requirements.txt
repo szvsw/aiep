@@ -1,0 +1,5 @@
+archetypal
+geomeppy
+pydantic
+networkx
+geomeppy
