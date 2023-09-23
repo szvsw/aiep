@@ -3,3 +3,4 @@ geomeppy
 pydantic
 networkx
 geomeppy
+streamlit
