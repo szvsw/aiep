@@ -4,7 +4,8 @@ import networkx as nx
 from eppy.idf_msequence import Idf_MSequence as idfm
 from eppy.bunch_subclass import BadEPFieldError
 from geomeppy.patches import EpBunch
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4, Field
+from uuid import uuid4
 
 
 # TODO: use data from pydantic IDD to setup dynamic object models
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 
 
 class Node(BaseModel):
+    id: UUID4 = Field(..., default_factory=lambda: uuid4())
     name: str
     type: str
     object: EpBunch
@@ -25,7 +27,7 @@ class Node(BaseModel):
         arbitrary_types_allowed = True
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(self.id.int)
 
 
 class Edge(BaseModel):
@@ -90,8 +92,19 @@ def create_graph(idf: IDF) -> tuple[list[Node], list[Edge], nx.MultiDiGraph]:
             nodes.append(node)
 
     # make a hashmap for easy lookup
-    nodes_dict = {obj.name: obj for obj in nodes}
-    # TODO: print out duplicate named nodes.
+    nodes_dict = {(obj.type, obj.name): obj for obj in nodes}
+    if len(nodes_dict) != len(nodes):
+        duped_nodes: list[Node] = []
+        node_counts = {}
+        for node in nodes:
+            if (node.type, node.name) in node_counts:
+                duped_nodes.append(node)
+                node_counts[node.name] += 1
+            else:
+                node_counts[node.name] = 1
+        for node in duped_nodes:
+            print(f"There are multiple nodes with the name {node.name}")
+
     assert len(nodes_dict) == len(
         nodes
     ), f"There are multiple nodes with the same name!"
@@ -105,18 +118,33 @@ def create_graph(idf: IDF) -> tuple[list[Node], list[Edge], nx.MultiDiGraph]:
             if field == "Name":
                 continue
             # get the field value
-            val = obj[field]
+            fieldvalue = obj[field]
             # make sure there's no weirdness...
-            assert type(val) in [
+            assert type(fieldvalue) in [
                 str,
                 float,
                 int,
-            ], f"Found a field with an unsupported type: {field},{val}"
+            ], f"Found a field with an unsupported type: {field},{fieldvalue}"
             # check that the field value is in the hashmap; if so, assume it
             # is a reference to another object.
-            if val in nodes_dict:
+            if fieldvalue in [
+                node_name for (node_type, node_name) in nodes_dict.keys()
+            ]:
                 # get the referenced object
-                target = nodes_dict[val]
+                # TODO: check the IDD for duplicate name case
+                candidate_nodes = list(
+                    filter(lambda obj: obj.name == fieldvalue, nodes_dict.values())
+                )
+                if len(candidate_nodes) > 1:
+                    print(
+                        f"WARNING: Source Node {source.type}:{source.name} has multiple targets "
+                        f"for field:{field}! Candidates:"
+                    )
+                    for candidate in candidate_nodes:
+                        print(candidate)
+                    continue
+
+                target = candidate_nodes[0]
                 # save the edge
                 edge = Edge(
                     source=source,
