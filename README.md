@@ -1,5 +1,7 @@
 # aiep: Interfacing EnergyPlus with LLMs
 
+![UI Prototype](./imgs/ui-prototype.png)
+
 This repo will be used (sporadically) for developing tooling to interface between LLM Agents and [EnergyPlus](http://energyplus.net).
 
 OpenAI's GPT-4 model has extensive knowledge of EnergyPlus, as it appears that significant portions of the IO Reference and Engineering Reference were included in the training corpus at least to some extent; perhaps some discussion forums (e.g. unmethours) also were ingested. However, the models still struggle to some extent to reason about provided IDF files directly. They can fairly effectively scaffold portions of IDFs, but of course it is challenging to build a complete IDF. Part of the motivation of this project is to be able to build LLM Agents which can better analyze, modify, and construct IDF files, as well as explore ways of representing, storing, and retrieving data from large datasets of IDFs in a manner suitable for EnergyPlus. One of the key hypotheses is that when reasoning about IDF files, they would be best representing as a directed graph structure of connected objects. Additionally, there is good reason to think that embedding the EnergyPlus reference documents as docstore over which retrieval and Question-Answering can be executed would be of great utility, both to an end user and an LLM agent analyzing and modifying IDFs.
