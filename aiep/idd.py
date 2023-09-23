@@ -1,4 +1,5 @@
 from archetypal.idfclass import IDF
+import networkx as nx
 from typing import Optional, Annotated, Iterator, Union
 from pydantic import BaseModel, Field, BeforeValidator
 
@@ -65,6 +66,20 @@ class IDD(BaseModel, extra="forbid"):
     def __iter__(self) -> Iterator["IDDObjectSchema"]:
         return iter(self.schemas.values())
 
+    def make_graph(self):
+        graph = nx.MultiDiGraph()
+        for source in self:
+            graph.add_node(source)
+
+        for source in self:
+            for field in source:
+                if field.validobjects is not None:
+                    for target in field.validobjects:
+                        assert target.upper() in self.schemas
+                        target = self.schemas[target.upper()]
+                        graph.add_edge(source, target, key=field.name)
+        return graph
+
     @classmethod
     def from_idf(cls, idf: IDF):
         idd = cls()
@@ -87,7 +102,7 @@ class IDD(BaseModel, extra="forbid"):
                 header.extensible = int(extensible_keys[0].split(":")[-1])
 
             idd_obj_schema = IDDObjectSchema(
-                object_type=idfobj_type,
+                object_type=idfobj_type.upper(),
                 header=header,
             )
             idd.schemas[idd_obj_schema.object_type] = idd_obj_schema
@@ -118,6 +133,9 @@ class IDDObjectSchema(BaseModel, extra="forbid"):
     object_type: str
     header: IDDObjectHeader
     field_definitions: dict[str, "IDDField"] = {}
+
+    def __hash__(self):
+        return hash(self.object_type)
 
     def __getitem__(self, field_name: str) -> "IDDField":
         if field_name in self.field_definitions:
