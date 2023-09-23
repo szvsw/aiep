@@ -93,26 +93,27 @@ def render():
                         for source, target, field in nx.reverse(idf_graph).edges(
                             obj, keys=True
                         ):
-                            st.button(
+                            clicked = st.button(
                                 f"({field.replace('_',' ')}) `{target.name.replace('_',' ')}`",
                                 key=f"{source}-{target}-{field}",
                                 use_container_width=True,
                             )
+                            if clicked:
+                                st.session_state.obj_cursor = target
+                                st.session_state.def_cursor = target.type.upper()
+                                st.experimental_rerun()
                     with r:
                         st.subheader("Referenced By")
                         for source, target, field in idf_graph.edges(obj, keys=True):
-                            st.button(
-                                f"`{source.name.replace('_',' ')} `({field.replace('_',' ')})",
+                            clicked = st.button(
+                                f"`{target.name.replace('_',' ')} `({field.replace('_',' ')})",
                                 key=f"{source}-{target}-{field}",
                                 use_container_width=True,
                             )
-                    idf_preds = idf_graph.successors(obj)
-                    for pred in idf_preds:
-                        clicked = st.button(f"`{pred.name}`", use_container_width=True)
-                        if clicked:
-                            st.session_state.obj_cursor = pred
-                            st.session_state.def_cursor = pred.type.upper()
-                            st.experimental_rerun()
+                            if clicked:
+                                st.session_state.obj_cursor = target
+                                st.session_state.def_cursor = target.type.upper()
+                                st.experimental_rerun()
             with right:
                 root = idd[st.session_state.def_cursor]
                 referenced_by = graph.predecessors(root)
