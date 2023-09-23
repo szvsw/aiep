@@ -68,7 +68,9 @@ def render():
         else:
             left, right = st.columns(2)
             with left:
-                st.button("Back to IDF Browser", use_container_width=True)
+                clicked = st.button("Back to IDF Browser", use_container_width=True)
+                if clicked:
+                    st.session_state.obj_cursor = None
             with right:
                 clicked = st.button(
                     "Back to Schema Browser",
@@ -81,39 +83,86 @@ def render():
 
             left, right = st.columns(2, gap="large")
             with left:
-                obj: Node = st.session_state.obj_cursor
-                st.header(f"`{obj.name}`")
-                idf_tab, idf_ref_tab = st.tabs(["IDF Text", "Linked Objects"])
-                with idf_tab:
-                    st.text(str(obj.object))
-                with idf_ref_tab:
-                    l, r = st.columns(2, gap="large")
-                    with l:
-                        st.subheader("References")
-                        for source, target, field in nx.reverse(idf_graph).edges(
-                            obj, keys=True
-                        ):
-                            clicked = st.button(
-                                f"({field.replace('_',' ')}) `{target.name.replace('_',' ')}`",
-                                key=f"{source}-{target}-{field}",
-                                use_container_width=True,
-                            )
-                            if clicked:
-                                st.session_state.obj_cursor = target
-                                st.session_state.def_cursor = target.type.upper()
-                                st.experimental_rerun()
-                    with r:
-                        st.subheader("Referenced By")
-                        for source, target, field in idf_graph.edges(obj, keys=True):
-                            clicked = st.button(
-                                f"`{target.name.replace('_',' ')} `({field.replace('_',' ')})",
-                                key=f"{source}-{target}-{field}",
-                                use_container_width=True,
-                            )
-                            if clicked:
-                                st.session_state.obj_cursor = target
-                                st.session_state.def_cursor = target.type.upper()
-                                st.experimental_rerun()
+                if st.session_state.obj_cursor is None:
+                    selected_category = st.selectbox(
+                        label="Select an object category",
+                        options=groups,
+                        index=groups.index(
+                            list(
+                                cat_graph.predecessors(idd[st.session_state.def_cursor])
+                            )[0]
+                        ),
+                    )
+                    cat_objs = list(cat_graph.successors(selected_category))
+                    obj_types = [obj.object_type for obj in cat_objs]
+                    if st.session_state.def_cursor not in obj_types:
+                        st.session_state.def_cursor = obj_types[0]
+                    selected_object = st.selectbox(
+                        f"{selected_category} Objects",
+                        options=cat_objs,
+                        index=obj_types.index(st.session_state.def_cursor),
+                        format_func=lambda obj: obj.object_type,
+                    )
+                    st.session_state.def_cursor = selected_object.object_type
+
+                    objs = list(
+                        filter(
+                            lambda x: x.type.upper() == selected_object.object_type,
+                            idf_graph.nodes,
+                        )
+                    )
+                    selected_idfobj = st.selectbox(
+                        "Select IDF Object",
+                        options=objs,
+                        format_func=lambda x: x.name,
+                    )
+                    clicked = st.button(
+                        "Load Object Definition",
+                        use_container_width=True,
+                        type="primary",
+                        disabled=selected_idfobj is None,
+                    )
+                    if clicked:
+                        st.session_state.obj_cursor = selected_idfobj
+                        st.session_state.def_cursor = selected_object.object_type
+                        st.experimental_rerun()
+
+                else:
+                    obj: Node = st.session_state.obj_cursor
+                    st.header(f"`{obj.name}`")
+                    idf_tab, idf_ref_tab = st.tabs(["IDF Text", "Linked Objects"])
+                    with idf_tab:
+                        st.text(str(obj.object))
+                    with idf_ref_tab:
+                        l, r = st.columns(2, gap="large")
+                        with l:
+                            st.subheader("References")
+                            for source, target, field in nx.reverse(idf_graph).edges(
+                                obj, keys=True
+                            ):
+                                clicked = st.button(
+                                    f"({field.replace('_',' ')}) `{target.name.replace('_',' ')}`",
+                                    key=f"{source}-{target}-{field}",
+                                    use_container_width=True,
+                                )
+                                if clicked:
+                                    st.session_state.obj_cursor = target
+                                    st.session_state.def_cursor = target.type.upper()
+                                    st.experimental_rerun()
+                        with r:
+                            st.subheader("Referenced By")
+                            for source, target, field in idf_graph.edges(
+                                obj, keys=True
+                            ):
+                                clicked = st.button(
+                                    f"`{target.name.replace('_',' ')} `({field.replace('_',' ')})",
+                                    key=f"{source}-{target}-{field}",
+                                    use_container_width=True,
+                                )
+                                if clicked:
+                                    st.session_state.obj_cursor = target
+                                    st.session_state.def_cursor = target.type.upper()
+                                    st.experimental_rerun()
             with right:
                 root = idd[st.session_state.def_cursor]
                 referenced_by = graph.predecessors(root)
